@@ -92,9 +92,9 @@ SHRP_EDL_MODE := 1
 SHRP_EXTERNAL := /external_sd
 SHRP_INTERNAL := /sdcard
 SHRP_OTG := /usbotg
-SHRP_REC := /dev/block/platform/13540000.dwmmc0# Shrp official
-SHRP_OFFICIAL := true# Shrp official
-SHRP_OFFICIAL := true/by-name/recovery
+SHRP_REC := /dev/block/platform/13540000.dwmmc0/by-name/RECOVERY
+# Shrp official
+SHRP_OFFICIAL := true
 SHRP_REC_TYPE := Treble
 SHRP_DEVICE_TYPE := A/B
 SHRP_FLASH := 1
