@@ -2,79 +2,65 @@ name: SHRP CI
 on:
   workflow_dispatch:
     inputs:
-      pushtosf:
-        description: 'set this to true if you wanna push to sf (all small)'
+      telegram:
+        description: 'Set this to true if you want send to telegram'
         required: true
+
 env:
-  MANIFEST: "git://github.com/SHRP/platform_manifest_twrp_omni.git -b v3_9.0"
   # Recovery Manifest URL with -b branch
-  DT_LINK: "https://github.com/SHRP-Devices/device_samsung_j4lte"
+  MANIFEST: "git://github.com/SHRP/platform_manifest_twrp_omni.git -b v3_9.0"
+  
   # Your Device Tree Link
-  VENDOR: "samsung"
+  DT_LINK: "https://github.com/SHRP-Devices/device_samsung_j4lte"
+  
   # Your Device's Vendor name as in used inside DT. Example: xiaomi, samsung, asus, etc.
-  CODENAME: "j4lte"
+  VENDOR: "samsung"
+  
   # Your Device's Codename as in used inside DT." Example: nikel, phoenix, ginkgo, etc.
-  KERNEL_LINK: "https://github.com/blackwidowroms/android_kernel_samsung_j4lte -b master"
+  CODENAME: "j4lte"
+  
   # Kernel repo link with optional -b branch. Only for building kernel from source. Ignore if using prebuilt.
-  TARGET: "recoveryimage"
+  KERNEL_LINK: "https://github.com/YariKartoshe4ka/android_kernel_samsung_j4lte -b master"
+  
   # Set as recoveryimage (or bootimage if no recovery partition avaiable)
-  FLAVOR: "eng"
+  TARGET: "recoveryimage"
+  
   # eng by default, change the variable if you want userdebug
-  EXTRA_CMD: ""
+  FLAVOR: "eng"
+ 
   # For qualcomm devices put git clone https://github.com/omnirom/android_vendor_qcom_opensource_commonsys --depth=1 -b android-9.0 vendor/qcom/opensource/commonsys in EXTRA CMD
   # If you want to Execute any external Command Before Compilation Starts
-  TZ: "Asia/Kolkata"
-  TOKEN: ${{ secrets.BOTTOKEN }}
+  EXTRA_CMD: ""
+  
+  TZ: "Europe/Moscow"
 
 jobs:
-  shrpCI:
+  SHRP-CI:
     runs-on: ubuntu-20.04
 
     steps:
-       - name: Cleaning Up Runner
-         uses: rokibhasansagar/slimhub_actions@main
+      - name: Clean Up Runner
+        uses: rokibhasansagar/slimhub_actions@main
 
-       - name: Recovery Compilation
-         uses: ElytrA8/Recovery-Compiler@production
+      - name: Compile Recovery
+        uses: ElytrA8/Recovery-Compiler@production
 
-       - name: PUSH To TG
-         run: |
-              cd ${BuildPath}/out/target/product/${CODENAME}/
-              ZIP=$(echo *stable*.zip)
-              curl -F document=@$ZIP "https://api.telegram.org/bot$TOKEN/sendDocument" \
-                  -F chat_id="-1001296548298" \
-                  -F "disable_web_page_preview=true" \
-                  -F "parse_mode=html" \
-                  -F caption=" <i> SHRP Recovery </i> for <b> '$VENDOR' '$CODENAME' </b> is Available for Testing Purposes Only | Build finished on <b> $(date) </b> | <i> #SHRP Recovery </i> "
-              ZIP=$(echo *AddonRescue*.zip)
-              curl -F document=@$ZIP "https://api.telegram.org/bot$TOKEN/sendDocument" \
-                  -F chat_id="-1001296548298" \
-                  -F "disable_web_page_preview=true" \
-                  -F "parse_mode=html" \
-                  -F caption=" <i> SHRP AddOnRescue </i> for <b> '$VENDOR' '$CODENAME' </b> | <i> #SHRP Recovery </i> "
+      - name: Get path to ZIP
+        run: echo "::set-output name=PATH_TO_ZIP::$(echo ${BuildPath}/out/target/product/${CODENAME}/*stable*.zip)"
+        id: path
 
-       - name: PUSH to SF
-         if: ${{ github.event.inputs.pushtosf }} == 'true'
-         run: |
-              cd ${BuildPath}/out/target/product/${CODENAME}/
-              sudo apt-get install expect -y
-              expect -c '
-              spawn sftp ${{ secrets.SFUSER }}@frs.sourceforge.net
-              expect \"yes/no\"
-              send "yes\r"
-              expect \"Password\"       
-              send "${{ secrets.SFPASS }}\r"
-              expect \"sftp> \"
-              send "cd cd /home/frs/project/shrp/${CODENAME}/\r"
-              set timeout -1
-              send "put *stable*.zip\r"
-              expect "Uploading"
-              expect "*100%*"
-              expect "sftp*"
-              send "put *AddonRescue*.zip\r"
-              expect "Uploading"
-              expect "*100%*"
-              expect "sftp*"
-              send "bye\r"
-              interact
-              '
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: SHRP Recovery
+          path: ${{ steps.path.outputs.PATH_TO_ZIP }}
+
+      - name: Send To Telegram
+        if: ${{ github.event.inputs.telegram }} == 'true'
+        run: |
+          curl "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendDocument" \
+               --form-string "chat_id=${{ secrets.TELEGRAM_TO }}" \
+               --form-string "disable_web_page_preview=true" \
+               --form-string "parse_mode=html" \
+               --form-string "caption=<i> SHRP Recovery </i> for <b> '$VENDOR' '$CODENAME' </b> | Build finished on <b> $(date) </b>" \
+               -F document=@"${{ steps.path.outputs.PATH_TO_ZIP }}"
